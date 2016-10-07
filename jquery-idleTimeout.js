@@ -24,11 +24,11 @@
         //## Public Configuration Variables
         //##############################
         var defaultConfig = {
-            redirectUrl: '/logout',      // redirect to this url on logout. Set to "redirectUrl: false" to disable redirect
+            redirectUrl: '/',      // redirect to this url on logout. Set to "redirectUrl: false" to disable redirect
 
             // idle settings
             idleTimeLimit: 1200,           // 'No activity' time limit in seconds. 1200 = 20 Minutes
-            idleCheckHeartbeat: 2,       // Frequency to check for idle timeouts in seconds
+            idleCheckHeartbeat: 1,       // Frequency to check for idle timeouts in seconds
 
             // optional custom callback to perform before logout
             customCallbackFlag: true,       // set to false for no customCallback
@@ -39,8 +39,7 @@
             // configure which activity events to detect
             // http://www.quirksmode.org/dom/events/
             // https://developer.mozilla.org/en-US/docs/Web/Reference/Events
-            activityEvents: 'click keypress scroll wheel mousewheel mousemove', // separate each event with a space
-
+            activityEvents: 'click keypress scroll wheel mousewheel mousemove touchmove', // separate each event with a space
             // warning dialog box configuration
             enableDialog: true,           // set to false for logout without warning dialog
             dialogDisplayLimit: 180,       // Time to display the warning dialog before logout (and optional callback) in seconds. 180 = 3 Minutes
@@ -75,7 +74,7 @@
 
         var timeoutIntercom = Intercom.getInstance();
         timeoutIntercom.on("LaunchTimeoutModal", function (data) {
-            if (Vault.getSessionItem("SessionTimeoutActive")) return; //Already active in this tab context
+            if (Vault.getSessionItem("SessionTimeoutActive") && isDialogOpen() === true) return; //Already active in this tab context
             launchTimeoutModal();
         });
         
@@ -108,7 +107,7 @@
 
         //----------- ACTIVITY DETECTION FUNCTION --------------//
         activityDetector = function () {
-            $(document).on(currentConfig.activityEvents, function () {
+            $("body").on(currentConfig.activityEvents, function () {
                 if (!currentConfig.enableDialog || (currentConfig.enableDialog && isDialogOpen() !== true)) {
                     startIdleTimer();
                 }
@@ -315,7 +314,7 @@
 
                     startIdleTimer();
                 } else {
-                    appRouter.careflowAppRouter.setLocation("/#/SignIn");
+                    window.location = "/"; //Hard redirct, reset Application
                     // alert(currentConfig.errorAlertMessage);
                 }
 

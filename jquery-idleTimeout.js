@@ -10,7 +10,7 @@
  * Configurable idle (no activity) timer and logout redirect for jQuery.
  * Works across multiple windows and tabs from the same domain.
  *
- * Dependencies: JQuery v1.7+, JQuery UI,  $.jStorage.js 
+ * Dependencies: JQuery v1.7+, JQuery UI,  $.jStorage.js
  *
  * version 1.0.11
  **/
@@ -50,7 +50,7 @@
             dialogLogOutNowButton: 'Log Out Now',
 
             // error message if https://github.com/marcuswestin/ $.jStorage.js not enabled
-            errorAlertMessage: 'Please disable "Private Mode", or upgrade to a modern browser. Or perhaps a dependent file missing. Please see: https://github.com/marcuswestin/ $.jStorage.js',
+            errorAlertMessage: 'Please disable "Private Mode", or upgrade to a modern browser',
 
             // server-side session keep-alive timer - can ping endpoint to refresh session and keep alive
             sessionKeepAliveTimer: false,   // ping the server at this interval in seconds. 600 = 10 Minutes. Set to false to disable pings
@@ -72,12 +72,29 @@
         //## Listeners
         //##############################
 
-        var timeoutIntercom = Intercom.getInstance();
-        timeoutIntercom.on("LaunchTimeoutModal", function (data) {
-            if (Vault.getSessionItem("SessionTimeoutActive") && isDialogOpen() === true) return; //Already active in this tab context
-            launchTimeoutModal();
+        //Reset by default on load / refresh
+        if (sessionStorage.getItem("SessionTimeoutActive")) {
+            sessionStorage.removeItem("SessionTimeoutActive"); //Kill session key for active tabs on window open / reload
+            Vault.setItem("SessionKeepAlive", moment().valueOf());
+        }
+
+        $.jStorage.listenKeyChange("SessionTimeoutWarning", function (key, action) {
+            if (!sessionStorage.getItem("SessionTimeoutActive")) {//Check not active in this tab context
+                launchTimeoutModal();
+            }
+
+            // if (isDialogOpen()) $.featherlight.close(); //close any open, non timeout modals
         });
-        
+
+        $.jStorage.listenKeyChange("SessionKeepAlive", function (key, action) { //Kill modal session is maintained.
+            if (Vault.getItem("SessionKeepAlive")) { //TODO: REFRESH TOKEN
+                if (sessionStorage.getItem("SessionTimeoutActive")) sessionStorage.removeItem("SessionTimeoutActive");
+                stopDialogTimer();
+                startIdleTimer();
+                $.featherlight.close();
+                //Vault.deleteItem("SessionKeepAlive");
+            }
+        });
 
         //##############################
         //## Public Functions
@@ -116,14 +133,14 @@
 
         //----------- IDLE TIMER FUNCTIONS --------------//
         checkIdleTimeout = function () {
-
             $.when(appMain.isUserLoggedIn().done(function (isUserLoggedInResult) {
-
-                var timeIdleTimeout = ($.jStorage.get('IdleTimerLastActivity') + (currentConfig.idleTimeLimit * 1000));
+                // var timeIdleTimeout = ($.jStorage.get('IdleTimerLastActivity') + (currentConfig.idleTimeLimit * 1000));
+                var timeIdleTimeout = moment($.jStorage.get('IdleTimerLastActivity')).add(currentConfig.idleTimeLimit, "seconds");
+                var now = moment.utc().valueOf();
 
                 if (isUserLoggedInResult) { //User is logged In
-
-                    if ($.now() > timeIdleTimeout) {
+                    //if ($.now() > timeIdleTimeout) {
+                    if (moment(now).isAfter(timeIdleTimeout)) {
                         if (!currentConfig.enableDialog) { // warning dialog is disabled
                             logoutUser(); // immediately log out user when user is idle for idleTimeLimit
                         } else if (currentConfig.enableDialog && isDialogOpen() !== true) {
@@ -136,21 +153,15 @@
                             stopDialogTimer();
                         }
                     }
-
                 } else {
                     window.location.href = "/#/SignIn";
                 }
-
-
             }));
-
-
-          
         };
 
         startIdleTimer = function () {
             stopIdleTimer();
-            $.jStorage.set('IdleTimerLastActivity', $.now());
+            $.jStorage.set('IdleTimerLastActivity', moment.utc().valueOf());
             checkIdleTimeoutLoop();
         };
 
@@ -165,15 +176,10 @@
 
         //----------- WARNING DIALOG FUNCTIONS --------------//
         openWarningDialog = function () {
-
-            //Broadcast to all session tabs to open the timeout
-            timeoutIntercom.emit("LaunchTimeoutModal", {
-            });
+            Vault.setItem("SessionTimeoutWarning", moment().valueOf(), { TTL: 3000 }); //Broadcast to all session tabs to open the timeout with a  TTL
         };
 
-
-        launchTimeoutModal = function() {
-
+        launchTimeoutModal = function () {
             GetHandlebarsTemplate.callApi("Content/js/handlebarsTemplates/appLogOut__modal.htm", null, null).done(GetHandlebarsTemplate.onTemplateInserted).done(function (html) {
                 countdownDisplay();
 
@@ -183,45 +189,36 @@
                     closeIcon: "",
                     closeSpeed: 0,
                     type: "html",
-                    beforeOpen: function() {
+                    beforeOpen: function () {
                         Vault.setSessionItem("SessionTimeoutActive", true);
                     },
                     beforeClose: function () {
-                        Vault.deleteSessionItem("SessionTimeoutActive");
                     },
                     afterContent: function () {
                         $(".js-appLogOutTimerModal-logOut-btn").unbind().on("click", appMain.userLogOut);
-                        $(".js-appLogOutTimerModal-stayLoggedIn-btn").unbind().on("click", function () {
-                            $.featherlight.close();
-                            stopDialogTimer();
-                            startIdleTimer();
+                        $(".js-appLogOutTimerModal-stayLoggedIn-btn").unbind().on("click", function () {//Tell all tabs to close
+                            Vault.setItem("SessionKeepAlive", moment().valueOf());
                         });
-
                     }
                 });
             });
 
-
             if (currentConfig.sessionKeepAliveTimer) {
                 stopKeepSessionAlive();
             }
-
-
         };
 
-
         checkDialogTimeout = function () {
-            var timeDialogTimeout = ($.jStorage.get('IdleTimerLastActivity') + (currentConfig.idleTimeLimit * 1000) + (currentConfig.dialogDisplayLimit * 1000));
-
+            //var timeDialogTimeout = ($.jStorage.get('IdleTimerLastActivity') + (currentConfig.idleTimeLimit * 1000) + (currentConfig.dialogDisplayLimit * 1000));
+            var timeDialogTimeout = moment($.jStorage.get('IdleTimerLastActivity')).add(currentConfig.idleTimeLimit, "seconds").add(currentConfig.dialogDisplayLimit, "seconds");
+            var now = moment().utc().valueOf();
             //if (($.now() > timeDialogTimeout) || ($.jStorage.get('idleTimerLoggedOut') === true)) {
             //    logoutUser();
             //}
 
-            if (($.now() > timeDialogTimeout)) {
+            if (moment(now).isAfter(timeDialogTimeout)) {
                 logoutUser();
             }
-
-
         };
 
         startDialogTimer = function () {
@@ -245,7 +242,7 @@
         destroyWarningDialog = function () {
             //$("#idletimer_warning_dialog").dialog('destroy').remove();
             //document.title = origTitle;
-            $.featherlight.close();
+            // $.featherlight.close();
 
             if (currentConfig.sessionKeepAliveTimer) {
                 startKeepSessionAlive();
@@ -267,17 +264,13 @@
 
         //----------- LOGOUT USER FUNCTION --------------//
         logoutUser = function () {
-
-            $.when(appMain.isUserLoggedIn().done(function(loggedIn) {
+            $.when(appMain.isUserLoggedIn().done(function (loggedIn) {
                 if (loggedIn) {
                     appMain.userLogOut();
                 } else {
                     return;
                 }
-
             }));
-
-           
 
             //$.jStorage.set('idleTimerLoggedOut', true);
 
@@ -299,11 +292,9 @@
         // This is your construct.
         //###############################
         return this.each(function () {
-
-            $.when(appMain.isUserLoggedIn().done(function(loggedIn) { //Only if logged on (should be called after authentication by app)
-
+            $.when(appMain.isUserLoggedIn().done(function (loggedIn) { //Only if logged on (should be called after authentication by app)
                 if ($.jStorage.storageAvailable() && loggedIn) {
-                    $.jStorage.set('IdleTimerLastActivity', $.now());
+                    $.jStorage.set('IdleTimerLastActivity', moment.utc().valueOf());
                     // $.jStorage.set('idleTimerLoggedOut', false);
 
                     activityDetector();
@@ -317,11 +308,7 @@
                     window.location = "/"; //Hard redirct, reset Application
                     // alert(currentConfig.errorAlertMessage);
                 }
-
             }));
-
-
-           
         });
     };
 }(jQuery));

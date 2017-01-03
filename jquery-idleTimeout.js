@@ -80,10 +80,9 @@
 
         $.jStorage.listenKeyChange("SessionTimeoutWarning", function (key, action) {
             if (!sessionStorage.getItem("SessionTimeoutActive")) {//Check not active in this tab context
+                if (isDialogOpen()) $.featherlight.close(); //close any open, non timeout modals
                 launchTimeoutModal();
             }
-
-            // if (isDialogOpen()) $.featherlight.close(); //close any open, non timeout modals
         });
 
         $.jStorage.listenKeyChange("SessionKeepAlive", function (key, action) { //Kill modal session is maintained.
@@ -143,7 +142,7 @@
                     if (moment(now).isAfter(timeIdleTimeout)) {
                         if (!currentConfig.enableDialog) { // warning dialog is disabled
                             logoutUser(); // immediately log out user when user is idle for idleTimeLimit
-                        } else if (currentConfig.enableDialog && isDialogOpen() !== true) {
+                        } else if (currentConfig.enableDialog) {
                             openWarningDialog();
                             startDialogTimer(); // start timing the warning dialog
                         }
@@ -189,12 +188,15 @@
                     closeIcon: "",
                     closeSpeed: 0,
                     type: "html",
-                    beforeOpen: function () {
+                    beforeOpen: function (e) {
+                        $.proxy($.featherlight.defaults.beforeOpen, this, e)();
                         Vault.setSessionItem("SessionTimeoutActive", true);
                     },
-                    beforeClose: function () {
+                    beforeClose: function (e) {
+                        $.proxy($.featherlight.defaults.beforeClose, this, e)();
                     },
-                    afterContent: function () {
+                    afterContent: function (e) {
+                        $.proxy($.featherlight.defaults.afterContent, this, e)();
                         $(".js-appLogOutTimerModal-logOut-btn").unbind().on("click", appMain.userLogOut);
                         $(".js-appLogOutTimerModal-stayLoggedIn-btn").unbind().on("click", function () {//Tell all tabs to close
                             Vault.setItem("SessionKeepAlive", moment().valueOf());
@@ -231,12 +233,7 @@
         };
 
         isDialogOpen = function () {
-            var dialogOpen = $(".js-appModal-wrapper").is(":visible");
-
-            if (dialogOpen === true) {
-                return true;
-            }
-            return false;
+            return !!$(".js-appModal-wrapper").length;
         };
 
         destroyWarningDialog = function () {

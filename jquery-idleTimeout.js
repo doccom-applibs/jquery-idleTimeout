@@ -80,7 +80,10 @@
 
         $.jStorage.listenKeyChange("SessionTimeoutWarning", function (key, action) {
             if (!sessionStorage.getItem("SessionTimeoutActive")) {//Check not active in this tab context
-                if (isDialogOpen()) $.featherlight.close(); //close any open, non timeout modals
+                if (isDialogOpen()) {
+                    $.featherlight.close(); //close any open, non timeout modals
+                }
+                appMain.closeAllqTips(); //close any open qtips
                 launchTimeoutModal();
             }
         });
@@ -123,13 +126,12 @@
 
         //----------- ACTIVITY DETECTION FUNCTION --------------//
         activityDetector = function () {
-            $("body").on(currentConfig.activityEvents, function () {
+            $(document, ".js-appModal-wrapper").on(currentConfig.activityEvents, function () {
                 if (!currentConfig.enableDialog || (currentConfig.enableDialog && isDialogOpen() !== true)) {
                     startIdleTimer();
                 }
             });
         };
-
         //----------- IDLE TIMER FUNCTIONS --------------//
         checkIdleTimeout = function () {
             $.when(appMain.isUserLoggedIn().done(function (isUserLoggedInResult) {
@@ -175,13 +177,11 @@
 
         //----------- WARNING DIALOG FUNCTIONS --------------//
         openWarningDialog = function () {
-            Vault.setItem("SessionTimeoutWarning", moment().valueOf(), { TTL: 3000 }); //Broadcast to all session tabs to open the timeout with a  TTL
+            Vault.setItem("SessionTimeoutWarning", moment().valueOf(), { TTL: 3000 }); //Broadcast to all session tabs to open the timeout countdown with a TTL
         };
 
         launchTimeoutModal = function () {
-            GetHandlebarsTemplate.callApi("Content/js/handlebarsTemplates/appLogOut__modal.htm", null, null).done(GetHandlebarsTemplate.onTemplateInserted).done(function (html) {
-                countdownDisplay();
-
+            GetHandlebarsTemplate.callApi("Content/js/handlebarsTemplates/appLogOut__modal.htm", null, null).done(function (html) {
                 $.featherlight(html, {
                     closeOnEsc: false,
                     closeOnClick: false,
@@ -197,8 +197,9 @@
                     },
                     afterContent: function (e) {
                         $.proxy($.featherlight.defaults.afterContent, this, e)();
+                        countdownDisplay();
                         $(".js-appLogOutTimerModal-logOut-btn").unbind().on("click", appMain.userLogOut);
-                        $(".js-appLogOutTimerModal-stayLoggedIn-btn").unbind().on("click", function () {//Tell all tabs to close
+                        $(".js-appLogOutTimerModal-stayLoggedIn-btn").unbind().on("click", function () {//Tell all tabs to keep alive
                             Vault.setItem("SessionKeepAlive", moment().valueOf());
                         });
                     }
@@ -233,14 +234,10 @@
         };
 
         isDialogOpen = function () {
-            return !!$(".js-appModal-wrapper").length;
+            return !!$.featherlight.current();
         };
 
         destroyWarningDialog = function () {
-            //$("#idletimer_warning_dialog").dialog('destroy').remove();
-            //document.title = origTitle;
-            // $.featherlight.close();
-
             if (currentConfig.sessionKeepAliveTimer) {
                 startKeepSessionAlive();
             }
@@ -248,7 +245,7 @@
 
         countdownDisplay = function () {
             var dialogDisplaySeconds = currentConfig.dialogDisplayLimit, mins, secs;
-
+            $('.js-countdownDisplay').text("00:" + dialogDisplaySeconds); //Set default on launch
             remainingTimer = setInterval(function () {
                 mins = Math.floor(dialogDisplaySeconds / 60); // minutes
                 if (mins < 10) { mins = '0' + mins; }
@@ -308,4 +305,4 @@
             }));
         });
     };
-}(jQuery));
+}(jQuery, $.jStorage));

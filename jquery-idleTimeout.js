@@ -69,34 +69,71 @@
           logoutUser;
 
         //##############################
-        //## Listeners
+        //## Listeners - crosstab dependency
         //##############################
 
-        //Reset by default on load / refresh
-        if (sessionStorage.getItem("SessionTimeoutActive")) {
-            sessionStorage.removeItem("SessionTimeoutActive"); //Kill session key for active tabs on window open / reload
-            Vault.setItem("SessionKeepAlive", moment().valueOf());
-        }
+        crosstab.on('SessionIsTimingOutInTab', function (response) {
+            var crosstabId = crosstab.id;
 
-        $.jStorage.listenKeyChange("SessionTimeoutWarning", function (key, action) {
-            if (!sessionStorage.getItem("SessionTimeoutActive")) {//Check not active in this tab context
-                if (isDialogOpen()) {
-                    $.featherlight.close(); //close any open, non timeout modals
-                }
+            if (crosstabId !== response.data.SessionTimeoutInitiatorTabId) { }
+
+            if (!sessionStorage.getItem("SessionTimeoutActive")) { //Check modal not active in this tab context
                 appMain.closeAllqTips(); //close any open qtips
                 launchTimeoutModal();
             }
+
+            //if (!sessionStorage.getItem("SessionTimeoutActive")) {//Check not active in this tab context
+            //    if (isDialogOpen()) {
+            //        $.featherlight.close(); //close any open, non timeout modals
+            //    }
+            //    appMain.closeAllqTips(); //close any open qtips
+            //    launchTimeoutModal();
+            //}
         });
 
-        $.jStorage.listenKeyChange("SessionKeepAlive", function (key, action) { //Kill modal session is maintained.
-            if (Vault.getItem("SessionKeepAlive")) { //TODO: REFRESH TOKEN
-                if (sessionStorage.getItem("SessionTimeoutActive")) sessionStorage.removeItem("SessionTimeoutActive");
-                stopDialogTimer();
-                startIdleTimer();
-                $.featherlight.close();
-                //Vault.deleteItem("SessionKeepAlive");
-            }
+        crosstab.on('SessionIsResumed', function (response) {
+            Vault.deleteSessionItem("SessionTimeoutActive");
+            //Vault.setItem("SessionKeepAlive", moment().valueOf());
+            stopDialogTimer();
+            startIdleTimer();
+            $.featherlight.close();
         });
+
+        //$.jStorage.listenKeyChange("SessionKeepAlive", function (key, action) { //Kill modal session is maintained.
+        //    if (Vault.getItem("SessionKeepAlive")) { //TODO: REFRESH TOKEN
+        //        if (sessionStorage.getItem("SessionTimeoutActive")) sessionStorage.removeItem("SessionTimeoutActive");
+        //        stopDialogTimer();
+        //        startIdleTimer();
+        //        $.featherlight.close();
+        //        //Vault.deleteItem("SessionKeepAlive");
+        //    }
+        //});
+
+        //Reset by default on load / refresh
+        //if (sessionStorage.getItem("SessionTimeoutActive")) {
+        //    sessionStorage.removeItem("SessionTimeoutActive"); //Kill session key for active tabs on window open / reload
+        //    Vault.setItem("SessionKeepAlive", moment().valueOf());
+        //}
+
+        //$.jStorage.listenKeyChange("SessionTimeoutWarning", function (key, action) {
+        //    if (!sessionStorage.getItem("SessionTimeoutActive")) {//Check not active in this tab context
+        //        if (isDialogOpen()) {
+        //            $.featherlight.close(); //close any open, non timeout modals
+        //        }
+        //        appMain.closeAllqTips(); //close any open qtips
+        //        launchTimeoutModal();
+        //    }
+        //});
+
+        //$.jStorage.listenKeyChange("SessionKeepAlive", function (key, action) { //Kill modal session is maintained.
+        //    if (Vault.getItem("SessionKeepAlive")) { //TODO: REFRESH TOKEN
+        //        if (sessionStorage.getItem("SessionTimeoutActive")) sessionStorage.removeItem("SessionTimeoutActive");
+        //        stopDialogTimer();
+        //        startIdleTimer();
+        //        $.featherlight.close();
+        //        //Vault.deleteItem("SessionKeepAlive");
+        //    }
+        //});
 
         //##############################
         //## Public Functions
@@ -134,7 +171,7 @@
         };
         //----------- IDLE TIMER FUNCTIONS --------------//
         checkIdleTimeout = function () {
-            $.when(appMain.isUserLoggedIn().done(function (isUserLoggedInResult) {
+            $.when(appMain.isUserLoggedIn().then(function (isUserLoggedInResult) {
                 // var timeIdleTimeout = ($.jStorage.get('IdleTimerLastActivity') + (currentConfig.idleTimeLimit * 1000));
                 var timeIdleTimeout = moment($.jStorage.get('IdleTimerLastActivity')).add(currentConfig.idleTimeLimit, "seconds");
                 var now = moment.utc().valueOf();
@@ -177,10 +214,16 @@
 
         //----------- WARNING DIALOG FUNCTIONS --------------//
         openWarningDialog = function () {
-            Vault.setItem("SessionTimeoutWarning", moment().valueOf(), { TTL: 3000 }); //Broadcast to all session tabs to open the timeout countdown with a TTL
+            //Broadcast to all session tabs to open the timeout countdown
+            var crossTabId = crosstab.id;
+            crosstab.broadcast("SessionIsTimingOutInTab", {
+                SessionTimeoutInitiatorTabId: crossTabId
+            });
         };
 
         launchTimeoutModal = function () {
+            Vault.setSessionItem("SessionTimeoutActive", true);
+
             GetHandlebarsTemplate.callApi("Content/js/handlebarsTemplates/appLogOut__modal.htm", null, null).done(function (html) {
                 $.featherlight(html, {
                     closeOnEsc: false,
@@ -190,7 +233,6 @@
                     type: "html",
                     beforeOpen: function (e) {
                         $.proxy($.featherlight.defaults.beforeOpen, this, e)();
-                        Vault.setSessionItem("SessionTimeoutActive", true);
                     },
                     beforeClose: function (e) {
                         $.proxy($.featherlight.defaults.beforeClose, this, e)();
@@ -200,7 +242,10 @@
                         countdownDisplay();
                         $(".js-appLogOutTimerModal-logOut-btn").unbind().on("click", appMain.userLogOut);
                         $(".js-appLogOutTimerModal-stayLoggedIn-btn").unbind().on("click", function () {//Tell all tabs to keep alive
-                            Vault.setItem("SessionKeepAlive", moment().valueOf());
+                            var crossTabId = crosstab.id;
+                            crosstab.broadcast("SessionIsResumed", {
+                                SessionIsResumedInTabId: crossTabId
+                            });
                         });
                     }
                 });
@@ -213,7 +258,7 @@
 
         checkDialogTimeout = function () {
             //var timeDialogTimeout = ($.jStorage.get('IdleTimerLastActivity') + (currentConfig.idleTimeLimit * 1000) + (currentConfig.dialogDisplayLimit * 1000));
-            var timeDialogTimeout = moment($.jStorage.get('IdleTimerLastActivity')).add(currentConfig.idleTimeLimit, "seconds").add(currentConfig.dialogDisplayLimit, "seconds");
+            var timeDialogTimeout = moment($.jStorage.get('IdleTimerLastActivity')).add(currentConfig.idleTimeLimit, "seconds").add(currentConfig.dialogDisplayLimit, "seconds") + 1;
             var now = moment().utc().valueOf();
             //if (($.now() > timeDialogTimeout) || ($.jStorage.get('idleTimerLoggedOut') === true)) {
             //    logoutUser();

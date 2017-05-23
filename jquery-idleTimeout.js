@@ -81,14 +81,7 @@
                 appMain.closeAllqTips(); //close any open qtips
                 launchTimeoutModal();
             }
-
-            //if (!sessionStorage.getItem("SessionTimeoutActive")) {//Check not active in this tab context
-            //    if (isDialogOpen()) {
-            //        $.featherlight.close(); //close any open, non timeout modals
-            //    }
-            //    appMain.closeAllqTips(); //close any open qtips
-            //    launchTimeoutModal();
-            //}
+           
         });
 
         crosstab.on('SessionIsResumed', function (response) {

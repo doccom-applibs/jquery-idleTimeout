@@ -63,7 +63,7 @@
         //##############################
           currentConfig = $.extend(defaultConfig, userRuntimeConfig), // merge default and user runtime configuration
           origTitle = document.title, // save original browser title
-          activityDetector,
+          activityDetector, stopActivityDetector,
           startKeepSessionAlive, stopKeepSessionAlive, keepSession, keepAlivePing, // session keep alive
           idleTimer, remainingTimer, checkIdleTimeout, checkIdleTimeoutLoop, startIdleTimer, stopIdleTimer, // idle timer
           openWarningDialog, dialogTimer, checkDialogTimeout, startDialogTimer, stopDialogTimer, isDialogOpen, destroyWarningDialog, countdownDisplay, // warning dialog
@@ -77,6 +77,16 @@
         this.logout = function () {
             appMain.userLogOut();
             //$.jStorage.set('idleTimerLoggedOut', true);
+        };
+
+        this.disableTimeout = function () {
+            $.featherlight.close();
+            stopDialogTimer();
+            stopActivityDetector();
+        };
+
+        this.restartTimeout = function () {
+            startIdleTimer();
         };
 
         //##############################
@@ -97,13 +107,17 @@
             clearTimeout(keepAlivePing);
         };
 
-        //----------- ACTIVITY DETECTION FUNCTION --------------//
+        //----------- ACTIVITY DETECTION FUNCTIONS --------------//
         activityDetector = function () {
             $('body').on(currentConfig.activityEvents, function () {
                 if (!currentConfig.enableDialog || (currentConfig.enableDialog && isDialogOpen() !== true)) {
                     startIdleTimer();
                 }
             });
+        };
+
+        stopActivityDetector = function() {
+            stopIdleTimer();
         };
 
         //----------- IDLE TIMER FUNCTIONS --------------//

@@ -86,7 +86,9 @@
         };
 
         this.restartTimeout = function () {
-            startIdleTimer();
+            if (!currentConfig.enableDialog || (currentConfig.enableDialog && isDialogOpen() !== true)) {
+                startIdleTimer();
+            }
         };
 
         //##############################

@@ -10,7 +10,7 @@
  * Configurable idle (no activity) timer and logout redirect for jQuery.
  * Works across multiple windows and tabs from the same domain.
  *
- * Dependencies: JQuery v1.7+, JQuery UI,  $.jStorage.js 
+ * Dependencies: JQuery v1.7+, JQuery UI,  $.jStorage.js
  *
  * version 1.0.11
  **/
@@ -118,19 +118,16 @@
             });
         };
 
-        stopActivityDetector = function() {
+        stopActivityDetector = function () {
             stopIdleTimer();
         };
 
         //----------- IDLE TIMER FUNCTIONS --------------//
         checkIdleTimeout = function () {
-
             $.when(appMain.isUserLoggedIn().done(function (isUserLoggedInResult) {
-
                 var timeIdleTimeout = ($.jStorage.get('idleTimerLastActivity') + (currentConfig.idleTimeLimit * 1000));
 
                 if (isUserLoggedInResult) { //User is logged In
-
                     if ($.now() >= timeIdleTimeout) {
                         if (!currentConfig.enableDialog) { // warning dialog is disabled
                             logoutUser(); // immediately log out user when user is idle for idleTimeLimit
@@ -144,16 +141,10 @@
                             stopDialogTimer();
                         }
                     }
-
                 } else {
                     window.location.href = "/#/SignIn";
                 }
-
-
             }));
-
-
-          
         };
 
         startIdleTimer = function () {
@@ -203,11 +194,10 @@
             //    logoutUser();
             //}
 
-            if (($.now() > timeDialogTimeout)) {
-                logoutUser();
+            if (($.now() > timeDialogTimeout)) {//Time has expired
+                //Save the users location for re-signin, as timed out
+                logoutUser(true);
             }
-
-
         };
 
         startDialogTimer = function () {
@@ -253,9 +243,8 @@
         };
 
         //----------- LOGOUT USER FUNCTION --------------//
-        logoutUser = function () {
-
-            appMain.userLogOut();
+        logoutUser = function (wasTimedOut) {
+            appMain.userLogOut(null, wasTimedOut);
 
             //$.jStorage.set('idleTimerLoggedOut', true);
 
@@ -279,7 +268,7 @@
         return this.each(function () {
             if ($.jStorage.storageAvailable && appMain.isUserLoggedIn()) {
                 $.jStorage.set('idleTimerLastActivity', $.now());
-               // $.jStorage.set('idleTimerLoggedOut', false);
+                // $.jStorage.set('idleTimerLoggedOut', false);
 
                 activityDetector();
 

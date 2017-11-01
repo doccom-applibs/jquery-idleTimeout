@@ -124,7 +124,7 @@
 
         //----------- IDLE TIMER FUNCTIONS --------------//
         checkIdleTimeout = function () {
-            $.when(appMain.isUserLoggedIn().done(function (isUserLoggedInResult) {
+            $.when(appMain.isUserLoggedIn().then(function (isUserLoggedInResult) {
                 var timeIdleTimeout = ($.jStorage.get('idleTimerLastActivity') + (currentConfig.idleTimeLimit * 1000));
 
                 if (isUserLoggedInResult) { //User is logged In

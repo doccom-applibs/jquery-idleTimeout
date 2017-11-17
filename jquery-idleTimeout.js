@@ -166,13 +166,23 @@
         openWarningDialog = function () {
             var postTemplate = CareflowApp.Templates['Content/js/handlebarsTemplates/appLogOut__modal.htm']; //TODO: BUILD ENDPOINT THAT RETURNS PROMISE WHEN DEALING WITH COMPILED TEMPLATES
             var html = postTemplate();
+            
 
-            countdownDisplay();
+          
             $.featherlight(html, {
                 closeOnEsc: false,
                 closeOnClick: false,
                 closeIcon: "",
-                type: "html"
+                type: "html",
+                afterContent: function (e) {
+                    $.proxy($.featherlight.defaults.afterContent, this, e)();
+                    //Set start time before countdown kicks off (so countdown is not blank for 1 sec)
+                    var dialogDisplaySeconds = currentConfig.dialogDisplayLimit, mins, secs;
+                    mins = Math.floor(dialogDisplaySeconds / 60); // minutes
+                    secs = dialogDisplaySeconds - (mins * 60); // seconds
+                    $('.js-countdownDisplay').html(secs);
+                    countdownDisplay();//Start timeout
+                }
             });
 
             $(".js-appLogOutTimerModal-logOut-btn").unbind().on("click", appMain.userLogOut);
@@ -231,13 +241,13 @@
 
         countdownDisplay = function () {
             var dialogDisplaySeconds = currentConfig.dialogDisplayLimit, mins, secs;
-
+            
             remainingTimer = setInterval(function () {
                 mins = Math.floor(dialogDisplaySeconds / 60); // minutes
                 if (mins < 10) { mins = '0' + mins; }
-                secs = dialogDisplaySeconds - (mins * 60); // seconds
+                secs = dialogDisplaySeconds - (mins * 60) - 1; // seconds - Deduct 1 sec as modal sets default value when opened (so countdown is not blank for 1 sec)
                 if (secs < 10) { secs = '0' + secs; }
-                $('.js-countdownDisplay').html(mins + ':' + secs);
+                $('.js-countdownDisplay').html(secs);
                 dialogDisplaySeconds -= 1;
             }, 1000);
         };

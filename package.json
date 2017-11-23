@@ -24,7 +24,7 @@
     "logout redirect"
   ],
   "dependencies": {
-    "JQuery": ">1.7"
+    "jquery": ">1.7"
   },
   "license": "CC-BY-SA-3.0",
   "bugs": {

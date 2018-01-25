@@ -54,20 +54,20 @@
             errorAlertMessage: 'Please disable "Private Mode", or upgrade to a modern browser. Or perhaps a dependent file missing. Please see: https://github.com/marcuswestin/ $.jStorage.js',
 
             // server-side session keep-alive timer
-            sessionKeepAliveTimer: 600,   // ping the server at this interval in seconds. 600 = 10 Minutes. Set to false to disable pings
+            sessionKeepAliveTimer: false,   // ping the server at this interval in seconds. 600 = 10 Minutes. Set to false to disable pings
             sessionKeepAliveUrl: window.location.href // set URL to ping - does not apply if sessionKeepAliveTimer: false
         },
 
-        //##############################
-        //## Private Variables
-        //##############################
-          currentConfig = $.extend(defaultConfig, userRuntimeConfig), // merge default and user runtime configuration
-          origTitle = document.title, // save original browser title
-          activityDetector, stopActivityDetector,
-          startKeepSessionAlive, stopKeepSessionAlive, keepSession, keepAlivePing, // session keep alive
-          idleTimer, remainingTimer, checkIdleTimeout, checkIdleTimeoutLoop, startIdleTimer, stopIdleTimer, // idle timer
-          openWarningDialog, dialogTimer, checkDialogTimeout, startDialogTimer, stopDialogTimer, isDialogOpen, destroyWarningDialog, countdownDisplay, // warning dialog
-          logoutUser;
+            //##############################
+            //## Private Variables
+            //##############################
+            currentConfig = $.extend(defaultConfig, userRuntimeConfig), // merge default and user runtime configuration
+            origTitle = document.title, // save original browser title
+            activityDetector, stopActivityDetector,
+            startKeepSessionAlive, stopKeepSessionAlive, keepSession, keepAlivePing, // session keep alive
+            idleTimer, remainingTimer, checkIdleTimeout, checkIdleTimeoutLoop, startIdleTimer, stopIdleTimer, // idle timer
+            openWarningDialog, dialogTimer, checkDialogTimeout, startDialogTimer, stopDialogTimer, isDialogOpen, destroyWarningDialog, countdownDisplay, // warning dialog
+            logoutUser;
 
         //##############################
         //## Public Functions
@@ -80,13 +80,14 @@
         };
 
         this.disableTimeout = function () {
-            $.featherlight.close();
+            if (!!$.featherlight.current()) $.featherlight.close();
             stopDialogTimer();
             stopActivityDetector();
+            console.log("disabled")
         };
 
         this.restartTimeout = function () {
-            if (!currentConfig.enableDialog || (currentConfig.enableDialog && isDialogOpen() !== true)) {
+            if (!currentConfig.enableDialog || (currentConfig.enableDialog && !isDialogOpen())) {
                 startIdleTimer();
             }
         };
@@ -112,7 +113,7 @@
         //----------- ACTIVITY DETECTION FUNCTIONS --------------//
         activityDetector = function () {
             $('body').on(currentConfig.activityEvents, function () {
-                if (!currentConfig.enableDialog || (currentConfig.enableDialog && isDialogOpen() !== true)) {
+                if (!currentConfig.enableDialog || (currentConfig.enableDialog && !isDialogOpen())) {
                     startIdleTimer();
                 }
             });
@@ -131,12 +132,12 @@
                     if ($.now() >= timeIdleTimeout) {
                         if (!currentConfig.enableDialog) { // warning dialog is disabled
                             logoutUser(); // immediately log out user when user is idle for idleTimeLimit
-                        } else if (currentConfig.enableDialog && isDialogOpen() !== true) {
+                        } else if (currentConfig.enableDialog && !isDialogOpen()) {
                             openWarningDialog();
                             startDialogTimer(); // start timing the warning dialog
                         }
                     } else { //Time not expires
-                        if (currentConfig.enableDialog && isDialogOpen() === true) {
+                        if (currentConfig.enableDialog && isDialogOpen()) {
                             destroyWarningDialog();
                             stopDialogTimer();
                         }
@@ -164,11 +165,9 @@
 
         //----------- WARNING DIALOG FUNCTIONS --------------//
         openWarningDialog = function () {
-            var postTemplate = CareflowApp.Templates['Content/js/handlebarsTemplates/appLogOut__modal.htm']; //TODO: BUILD ENDPOINT THAT RETURNS PROMISE WHEN DEALING WITH COMPILED TEMPLATES
+            var postTemplate = CareflowApp.Templates['Content/js/handlebarsTemplates/appLogOut__modal.htm'];
             var html = postTemplate();
-            
 
-          
             $.featherlight(html, {
                 closeOnEsc: false,
                 closeOnClick: false,
@@ -176,7 +175,7 @@
                 type: "html",
                 afterContent: function (e) {
                     $.proxy($.featherlight.defaults.afterContent, this, e)();
-                    //Set start time before countdown kicks off (so countdown is not blank for 1 sec)
+                    //Set default (calculated) start time before countdown kicks off (so countdown is not blank for 1 sec)
                     var dialogDisplaySeconds = currentConfig.dialogDisplayLimit, mins, secs;
                     mins = Math.floor(dialogDisplaySeconds / 60); // minutes
                     secs = dialogDisplaySeconds - (mins * 60); // seconds
@@ -187,7 +186,7 @@
 
             $(".js-appLogOutTimerModal-logOut-btn").unbind().on("click", appMain.userLogOut);
             $(".js-appLogOutTimerModal-stayLoggedIn-btn").unbind().on("click", function () {
-                $.featherlight.close();
+                if (!!$.featherlight.current()) $.featherlight.close();
                 stopDialogTimer();
                 startIdleTimer();
             });
@@ -220,19 +219,21 @@
         };
 
         isDialogOpen = function () {
-            var dialogOpen = $(".js-countdownDisplay-active").is(":visible");
+            return !!$.featherlight.current();
 
-            if (dialogOpen === true) {
-                return true;
-            }
-            return false;
+            //var dialogOpen = $(".js-countdownDisplay-active").is(":visible");
+            //var dialogOpen = $.featherlight.current();
+            //if (dialogOpen === true) {
+            //    return true;
+            //}
+            //return false;
         };
 
         destroyWarningDialog = function () {
             //$("#idletimer_warning_dialog").dialog('destroy').remove();
             //document.title = origTitle;
 
-            $.featherlight.close();
+            if (!!$.featherlight.current()) $.featherlight.close();
 
             if (currentConfig.sessionKeepAliveTimer) {
                 startKeepSessionAlive();
@@ -241,7 +242,7 @@
 
         countdownDisplay = function () {
             var dialogDisplaySeconds = currentConfig.dialogDisplayLimit, mins, secs;
-            
+
             remainingTimer = setInterval(function () {
                 mins = Math.floor(dialogDisplaySeconds / 60); // minutes
                 if (mins < 10) { mins = '0' + mins; }

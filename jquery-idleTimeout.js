@@ -219,14 +219,14 @@
         };
 
         isDialogOpen = function () {
-            return !!$.featherlight.current();
-
-            //var dialogOpen = $(".js-countdownDisplay-active").is(":visible");
+            //return !!$.featherlight.current();
+            //var dialogOpen = !!$(".js-appLogOutTimerModal").length;
             //var dialogOpen = $.featherlight.current();
             //if (dialogOpen === true) {
             //    return true;
             //}
             //return false;
+            return !!$(".js-appLogOutTimerModal").length
         };
 
         destroyWarningDialog = function () {
